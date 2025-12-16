@@ -4,23 +4,21 @@ from matplotlib.animation import FuncAnimation
 import utils as ut
 
 
-def visualize_training(x, y, degree, learning_rate=0.01, iterations=1000):
-    """경사하강법 학습 과정을 애니메이션으로 시각화"""
+def visualize_training(x_norm, y_norm, x_orig, y_orig, degree, learning_rate=0.01, iterations=1000):
     
-    # 학습 실행
     print(f"\nTraining polynomial of degree {degree}...")
-    coeffs_history = ut.gradient_descent(x, y, degree, learning_rate, iterations)
+    coeffs_history = ut.gradient_descent(x_norm, y_norm, degree, learning_rate, iterations)
     
-    # 애니메이션 설정
     fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(15, 6))
     
-    # x 범위 확장 (부드러운 곡선)
-    x_range = np.linspace(x.min(), x.max(), 300)
+    x_range_orig = np.linspace(x_orig.min(), x_orig.max(), 300)
+    # 예측을 위한 정규화
+    x_range_norm = (x_range_orig - x_orig.min()) / (x_orig.max() - x_orig.min())
     
     def init():
         ax1.clear()
         ax2.clear()
-        ax1.scatter(x, y, c='blue', alpha=0.5, label='Data')
+        ax1.scatter(x_orig, y_orig, c='blue', alpha=0.5, label='Data')  # 원본 좌표
         ax1.set_xlabel('x')
         ax1.set_ylabel('y')
         ax1.set_title(f'Polynomial Regression (Degree {degree})')
@@ -40,12 +38,13 @@ def visualize_training(x, y, degree, learning_rate=0.01, iterations=1000):
         
         iteration, coeffs, loss = coeffs_history[frame_idx]
         
-        # 왼쪽: 데이터와 근사 곡선
         ax1.clear()
-        ax1.scatter(x, y, c='blue', alpha=0.5, label='Data', s=30)
+        ax1.scatter(x_orig, y_orig, c='blue', alpha=0.5, label='Data', s=30)  # 원본 좌표
         
-        y_pred = ut.polynomial_predict(x_range, coeffs)
-        ax1.plot(x_range, y_pred, 'r-', linewidth=2, label=f'Fitted (iter {iteration})')
+        # 정규화된 x로 예측 후 역정규화
+        y_pred_norm = ut.polynomial_predict(x_range_norm, coeffs)
+        y_pred_orig = y_pred_norm * (y_orig.max() - y_orig.min()) + y_orig.min()  # y 역정규화
+        ax1.plot(x_range_orig, y_pred_orig, 'r-', linewidth=2, label=f'Fitted (iter {iteration})')
         
         ax1.set_xlabel('x', fontsize=12)
         ax1.set_ylabel('y', fontsize=12)
@@ -80,41 +79,43 @@ def visualize_training(x, y, degree, learning_rate=0.01, iterations=1000):
     plt.tight_layout()
     plt.show()
     
-    # 최종 결과 출력
     final_iter, final_coeffs, final_loss = coeffs_history[-1]
     print(f"\nFinal Loss: {final_loss:.6f}")
     print(f"Final Coefficients: {final_coeffs}")
 
 
-# CSV 파일 경로
-csv_file = "data.csv"
+csv_file = "data/a1.csv" # 데이터 파일 경로.
 
-# 데이터 로드
-try:
-    x, y = ut.load_csv_data(csv_file)
-    print(f"Loaded {len(x)} data points from {csv_file}")
-except FileNotFoundError:
-    print(f"File {csv_file} not found. Generating sample data...")
-    # 샘플 데이터 생성 (테스트용)
-    x = np.linspace(0, 10, 50)
-    y = 2 + 3*x + 0.5*x**2 - 0.1*x**3 + np.random.randn(50) * 2
+x, y = ut.load_csv_data(csv_file)
+print(f"Loaded {len(x)} data points from {csv_file}")
+
+print("\n=== Normalizing Features ===")
+print(f"Original x range: [{x.min():.2f}, {x.max():.2f}]")
+print(f"Original y range: [{y.min():.2f}, {y.max():.2f}]")
+
+x_normalized, x_min, x_max = ut.normalize_features(x)
+y_normalized, y_min, y_max = ut.normalize_features(y)
+
+print(f"Normalized x range: [{x_normalized.min():.2f}, {x_normalized.max():.2f}]")
+print(f"Normalized y range: [{y_normalized.min():.2f}, {y_normalized.max():.2f}]")
 
 # 차수별 학습 및 최적 차수 찾기
 print("\n=== Finding Best Polynomial Degree ===")
-max_degree = 10
-learning_rate = 0.0001
-iterations = 5000
+learning_rate = 0.05  #학습률
+iterations = 8000  #사용할 데이터 수
 
 best_degree, all_results = ut.find_best_degree(
-    x, y, 
-    max_degree=max_degree,
+    x_normalized, y_normalized,  #계산은 정규화된 데이터를 사용한다.
     learning_rate=learning_rate,
-    iterations=iterations
+    iterations=iterations,
+    validation_split=0.4,
+    patience=8
 )
 
 print(f"\n=== Best Degree: {best_degree} ===")
 print(f"Best Validation Loss: {all_results[best_degree][2]:.6f}")
+print(f"Train Loss: {all_results[best_degree][1]:.6f}")
+print(f"Full Data Loss: {all_results[best_degree][3]:.6f}")
 
-# 최적 차수로 전체 데이터에 대해 학습 과정 애니메이션
 print("\n=== Training on full dataset ===")
-visualize_training(x, y, best_degree, learning_rate, iterations)
+visualize_training(x_normalized, y_normalized, x, y, best_degree, learning_rate, iterations)

@@ -2,19 +2,35 @@ import numpy as np
 import csv
 
 
-# ==================== 데이터 로드 및 생성 ====================
+
+def normalize_features(x):
+    """
+    [0, 1]로 특성 정규화함.
+        x_normalized: 정규화된 특성
+        x_min, x_max: 정규화 파라미터
+    """
+    x_min, x_max = x.min(), x.max()
+    x_normalized = (x - x_min) / (x_max - x_min)
+    return x_normalized, x_min, x_max
+
+
+def denormalize_coeffs(coeffs_normalized, x_min, x_max):
+    """
+    정규화된 공간에서 학습한 계수를 원본 공간으로 변환
+    
+    y = a0 + a1*x_norm + a2*x_norm^2 + ...
+    x_norm = (x - x_min) / (x_max - x_min)
+    
+    이를 원본 x에 대한 식으로 변환
+    """
+    # 간단히 하기 위해 정규화된 계수 그대로 반환
+    # 실제로는 복잡한 변환이 필요하지만, 시각화용으로는 정규화된 공간에서 사용
+    return coeffs_normalized
+
 
 def train_test_split(x, y, test_size=0.2, random_state=None):
     """
     데이터를 train/test로 분할
-    
-    Args:
-        x, y: 데이터
-        test_size: 테스트 데이터 비율
-        random_state: 랜덤 시드
-    
-    Returns:
-        x_train, x_test, y_train, y_test
     """
     if random_state is not None:
         np.random.seed(random_state)
@@ -29,16 +45,9 @@ def train_test_split(x, y, test_size=0.2, random_state=None):
     
     return x[train_indices], x[test_indices], y[train_indices], y[test_indices]
 
-def generate_random_polynomial(max_degree=5):
+def generate_random_polynomial(max_degree):
     """
     랜덤한 다항 함수 생성
-    
-    Args:
-        max_degree: 최대 차수
-    
-    Returns:
-        degree: 선택된 차수
-        coeffs: 계수 리스트 [a0, a1, a2, ..., an]
     """
     # 1차부터 max_degree 사이 랜덤 선택
     degree = np.random.randint(1, max_degree + 1)
@@ -85,7 +94,7 @@ def generate_noisy_data(coeffs, x_range=(0, 10), num_points=100, noise_level=1.0
 
 
 def save_to_csv(x_data, y_data, filename='data.csv'):
-    """데이터를 CSV 파일로 저장"""
+
     with open(filename, 'w', newline='') as file:
         writer = csv.writer(file)
         writer.writerow(['x', 'y'])  # 헤더
@@ -94,61 +103,13 @@ def save_to_csv(x_data, y_data, filename='data.csv'):
     
     print(f"Data saved to {filename}")
 
-
-def generate_test_data(
-    output_file='data.csv',
-    max_degree=5,
-    x_range=(0, 10),
-    num_points=100,
-    noise_level=1.0
-):
-    """
-    랜덤 다항 함수를 생성하고 노이즈가 있는 테스트 데이터를 CSV로 저장
-    
-    Args:
-        output_file: 출력 CSV 파일명
-        max_degree: 최대 차수
-        x_range: x 값 범위
-        num_points: 생성할 점의 개수
-        noise_level: 노이즈 수준
-    """
-    # 랜덤 다항 함수 생성
-    degree, coeffs = generate_random_polynomial(max_degree)
-    
-    print(f"Generated polynomial of degree {degree}")
-    print("Coefficients:", coeffs)
-    
-    # 다항 함수 출력
-    poly_str = "y = "
-    terms = []
-    for i, coeff in enumerate(coeffs):
-        if i == 0:
-            terms.append(f"{coeff:.3f}")
-        elif i == 1:
-            terms.append(f"{coeff:.3f}*x")
-        else:
-            terms.append(f"{coeff:.3f}*x^{i}")
-    poly_str += " + ".join(terms)
-    print(f"Polynomial: {poly_str}")
-    
-    # 노이즈 데이터 생성
-    x_data, y_data = generate_noisy_data(coeffs, x_range, num_points, noise_level)
-    
-    # CSV 저장
-    save_to_csv(x_data, y_data, output_file)
-    
-    print(f"Generated {num_points} data points in range {x_range}")
-    print(f"Noise level: {noise_level}")
-
-
 def load_csv_data(filepath):
-    """CSV 파일에서 x, y 좌표 데이터 로드"""
     x_data = []
     y_data = []
     
     with open(filepath, 'r') as file:
         reader = csv.reader(file)
-        next(reader)  # 헤더 스킵
+        next(reader)
         for row in reader:
             x_data.append(float(row[0]))
             y_data.append(float(row[1]))
@@ -157,7 +118,7 @@ def load_csv_data(filepath):
 
 
 def polynomial_predict(x, coeffs):
-    """다항 함수로 예측: y = a0 + a1*x + a2*x^2 + ... + an*x^n"""
+    #다항 함수로 예측: y = a0 + a1*x + a2*x^2 + ... + an*x^n
     result = np.zeros_like(x)
     for i, coeff in enumerate(coeffs):
         result += coeff * (x ** i)
@@ -165,12 +126,37 @@ def polynomial_predict(x, coeffs):
 
 
 def mse_loss(y_true, y_pred):
-    """평균 제곱 오차 (Mean Squared Error) 계산"""
+    #평균제곱오차를 return함.
     return np.mean((y_true - y_pred) ** 2)
 
 
+def calculate_aic(mse, n, k):
+    """
+    AIC (Akaike Information Criterion) 계산
+
+        mse: 평균제곱오차
+        n: 데이터 포인트 개수
+        k: 파라미터 개수 (차수 + 1)
+    
+    """
+    return n * np.log(mse) + 2 * k
+
+
+def calculate_bic(mse, n, k):
+    """
+    BIC (Bayesian Information Criterion) 계산
+
+    식: BIC = n * log(mse) + k * log(n)
+
+        mse: 평균제곱오차
+        n: 데이터 포인트 개수
+        k: 파라미터 개수 (차수 + 1)
+    """
+
+    return n * np.log(mse) + k * np.log(n)
+
+
 def compute_gradients(x, y_true, y_pred, degree):
-    """각 계수에 대한 gradient 계산"""
     m = len(x)
     gradients = []
     
@@ -183,14 +169,8 @@ def compute_gradients(x, y_true, y_pred, degree):
 
 
 def gradient_descent(x, y, degree, learning_rate=0.01, iterations=1000, tolerance=1e-6):
-    """
-    경사하강법으로 다항 함수 계수 학습
-    
-    Returns:
-        coeffs_history: 학습 과정의 계수들 [(iteration, coeffs, loss), ...]
-    """
-    # 계수 초기화 (랜덤)
-    coeffs = np.random.randn(degree + 1) * 0.01
+
+    coeffs = np.random.randn(degree + 1) * 0.1
     
     coeffs_history = []
     prev_loss = float('inf')
@@ -202,11 +182,10 @@ def gradient_descent(x, y, degree, learning_rate=0.01, iterations=1000, toleranc
         # 손실 계산
         loss = mse_loss(y, y_pred)
         
-        # 기록 (10번마다 또는 마지막)
         if iteration % 10 == 0 or iteration == iterations - 1:
             coeffs_history.append((iteration, coeffs.copy(), loss))
         
-        # 조기 종료 (손실 변화가 작으면)
+        # 조기 종료
         if abs(prev_loss - loss) < tolerance:
             coeffs_history.append((iteration, coeffs.copy(), loss))
             break
@@ -220,36 +199,71 @@ def gradient_descent(x, y, degree, learning_rate=0.01, iterations=1000, toleranc
     return coeffs_history
 
 
-def find_best_degree(x, y, max_degree=10, learning_rate=0.01, iterations=1000, validation_split=0.2):
-    """
-    최적의 다항식 차수 찾기 (Train/Validation Split 사용)
-    
-    Args:
-        validation_split: 검증 데이터 비율
-    
-    Returns:
-        best_degree: 최적 차수
-        all_results: {degree: (final_coeffs, train_loss, val_loss)}
-    """
+def find_best_degree(x, y, learning_rate=0.01, iterations=1000, validation_split=0.3, patience=3):
+
+    #Best validation loss 대비 악화가 patience번 지속되면 조기 중단
+
     # 데이터 분할
     x_train, x_val, y_train, y_val = train_test_split(x, y, test_size=validation_split, random_state=42)
     
     all_results = {}
+    best_val_loss = float('inf')
+    no_improvement_count = 0
+    degree = 1
     
-    for degree in range(1, max_degree + 1):
-        # 학습 데이터로 학습
-        history = gradient_descent(x_train, y_train, degree, learning_rate, iterations)
-        final_iter, final_coeffs, train_loss = history[-1]
+    print(f"Starting degree search (patience={patience}, val_split={validation_split})...")
+    
+    while True:
+        # 전체 데이터로 학습
+        history = gradient_descent(x, y, degree, learning_rate, iterations)
+        final_iter, final_coeffs, full_train_loss = history[-1]
         
-        # 검증 데이터로 평가
+        # Train으로 평가
+        y_train_pred = polynomial_predict(x_train, final_coeffs)
+        train_loss = mse_loss(y_train, y_train_pred)
+        
+        # Validation으로 평가 (과적합 체크)
         y_val_pred = polynomial_predict(x_val, final_coeffs)
         val_loss = mse_loss(y_val, y_val_pred)
         
-        all_results[degree] = (final_coeffs, train_loss, val_loss)
+        # BIC 계산
+        n = len(y_val)
+        k = degree + 1  # 파라미터 개수: 고차 다항식의 경우 패널티를 부여한다.
+        bic = calculate_bic(val_loss, n, k)
         
-        print(f"Degree {degree}: Train Loss = {train_loss:.6f}, Val Loss = {val_loss:.6f}")
+        all_results[degree] = (final_coeffs, train_loss, val_loss, full_train_loss, bic)
+        
+        print(f"Degree {degree}: Train = {train_loss:.6f}, Val = {val_loss:.6f}, BIC = {bic:.2f}")
+        
+        # 조기 중단 체크 (Best BIC 대비)
+        if bic < best_val_loss:
+            improvement = best_val_loss - bic
+            best_val_loss = bic
+            no_improvement_count = 0
+            print(f"  → New best BIC! Improved by {improvement:.2f} ✓")
+        else:
+            no_improvement_count += 1
+            gap = bic - best_val_loss
+            print(f"  → No improvement (gap: {gap:.2f}, count: {no_improvement_count}/{patience})")
+            
+            if no_improvement_count >= patience:
+                print(f"\n Early stopping at degree {degree}!")
+                print(f"No improvement for {patience} consecutive degrees.")
+                break
+        
+        degree += 1
+        
+        #무한 루프 방지
+        if degree > 50:
+            print(f"\n Reached maximum degree limit")
+            break
     
-    # 검증 손실이 가장 낮은 차수 선택
-    best_degree = min(all_results.keys(), key=lambda d: all_results[d][2])
+    # BIC가 가장 낮은 차수 선택
+    best_degree = min(all_results.keys(), key=lambda d: all_results[d][4])  # index 4 = BIC
+    best_bic = all_results[best_degree][4]
+    best_val_loss = all_results[best_degree][2]
+    
+    print(f"\nTested {len(all_results)} degrees (1 to {max(all_results.keys())})")
+    print(f"Best degree: {best_degree} with BIC: {best_bic:.2f}, Val Loss: {best_val_loss:.6f}")
     
     return best_degree, all_results
