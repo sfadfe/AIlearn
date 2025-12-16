@@ -1,7 +1,7 @@
 import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib.animation import FuncAnimation
-import utils as ut #내가 만든 함수들임...
+import utils as ut ##내가 만든 함수들임...
 
 n = 1000
 dot_list = []

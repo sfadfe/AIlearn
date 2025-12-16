@@ -1,4 +1,4 @@
-def Minkowski_distance(point1:list , point2:list, p:int): #민코프스키 거리 계산.
+def Minkowski_distance(point1:list , point2:list, p:int): ##민코프스키 거리 계산.
     if len(point1) != 2 or (len(point2) != 3 and len(point2) !=2):
         raise ValueError("=====점의 좌표가 아님..=====")
     
