@@ -2,8 +2,13 @@ import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.animation import FuncAnimation
 import utils as ut
+import argparse
 
+parser = argparse.ArgumentParser()
+parser.add_argument('--route', type=str, required=True, help='데이터 파일명 (예: data.csv)')
+args = parser.parse_args()
 
+route = args.route
 def visualize_training(x_norm, y_norm, x_orig, y_orig, degree, learning_rate=0.01, iterations=1000):
     
     print(f"\nTraining polynomial of degree {degree}...")
@@ -84,7 +89,7 @@ def visualize_training(x_norm, y_norm, x_orig, y_orig, degree, learning_rate=0.0
     print(f"Final Coefficients: {final_coeffs}")
 
 
-csv_file = "data/a1.csv" # 데이터 파일 경로.
+csv_file = f"data/{route}" # 데이터 파일 경로.
 
 x, y = ut.load_csv_data(csv_file)
 print(f"Loaded {len(x)} data points from {csv_file}")
