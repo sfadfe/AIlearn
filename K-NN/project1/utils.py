@@ -3,13 +3,12 @@ import sys
 from collections import Counter
 import matplotlib
 matplotlib.rc('font', family='NanumGothic', size=12)
-import matplotlib.pyplot as plt
 
 def generate_dots(n, num_per_class, num_classes=3):
     temp = set()
     while len(temp) < num_per_class * num_classes:
-        x = np.random.randint(n//5, 4*n//5)
-        y = np.random.randint(n//5, 4*n//5)
+        x = np.random.randint(0, n)
+        y = np.random.randint(0, n)
         temp.add((x, y))
     temp = list(temp)
     dot_list = []
@@ -47,3 +46,35 @@ def classification(point1, dot_list, k:int, p:int): #분류
     for i, cls in list_distance[:k]:
         if cls in candidates:
             return cls
+    
+def accuracy_in_circle(dot_list, grid, r=10):
+
+    n = grid.shape[0]
+    correct = 0
+    total = 0
+
+    for x, y, true_class in dot_list:
+
+        x_min, x_max = max(0, x - r), min(n, x + r + 1)
+        y_min, y_max = max(0, y - r), min(n, y + r + 1)
+
+        xs, ys = np.ogrid[x_min:x_max, y_min:y_max]
+        mask = (xs - x)**2 + (ys - y)**2 <= r**2
+        region = grid[x_min:x_max, y_min:y_max]
+        
+        total += np.count_nonzero(mask)
+        correct += np.count_nonzero(region[mask] == true_class)
+    if total == 0:
+        return 0
+    return correct / total
+
+def leave_one_out_accuracy(dot_list, k, p=2):
+    
+    correct = 0
+    for idx, (x, y, true_class) in enumerate(dot_list):
+
+        others = dot_list[:idx] + dot_list[idx+1:]
+        pred = classification([x, y], others, k, p)
+        if pred == true_class:
+            correct += 1
+    return correct / len(dot_list) if dot_list else 0
