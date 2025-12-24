@@ -26,3 +26,8 @@ Thumbs.db
 *.mp4
 
 git_function.txt
+
+MNIST_ANN/data/
+
+MNIST_ANN/My_ver/data/
+.pkl
