@@ -3,6 +3,17 @@ import torch.nn as nn
 import torch.optim as optim
 from torchvision import datasets, transforms
 from torch.utils.data import DataLoader
+import matplotlib
+import matplotlib.pyplot as plt
+import numpy as np
+
+import matplotlib.font_manager as fm
+font_path = '/usr/share/fonts/truetype/nanum/NanumGothic.ttf'
+if fm.findSystemFonts(fontpaths=['/usr/share/fonts/truetype/nanum/']):
+    plt.rc('font', family='NanumGothic')
+    matplotlib.rcParams['axes.unicode_minus'] = False
+else:
+    print('NanumGothic 폰트가 시스템에 없습니다. 한글이 깨질 수 있습니다.')
 
 INPUT_SIZE = 784    # 28x28 픽셀 이미지이므로 입력은 784개
 HIDDEN_SIZE = 256   # 은닉층 노드 수 (임의 설정)
@@ -32,22 +43,40 @@ model = SimpleANN()
 criterion = nn.CrossEntropyLoss()
 optimizer = optim.SGD(model.parameters(), lr=LEARNING_RATE)
 
-print("학습 시작...")
-for epoch in range(EPOCHS):
-    for i, (images, labels) in enumerate(train_loader):
-        # [Step 1] Forward
+print("학습 시작")
+for i in range(EPOCHS):
+    for j, (images, labels) in enumerate(train_loader):
         outputs = model(images)
         
-        # [Step 2] Loss 계산
         loss = criterion(outputs, labels)
         
-        # [Step 3] Backward (기울기 계산)
         optimizer.zero_grad()
         loss.backward()
-        
-        # [Step 4] Update (가중치 갱신)
         optimizer.step()
         
-    print(f'Epoch [{epoch+1}/{EPOCHS}], Loss: {loss.item():.4f}')
+    print(f'Epoch [{i+1}/{EPOCHS}], Loss: {loss.item():.4f}')
 
 print("학습 완료...")
+
+def predict(model, image_tensor):
+    model.eval()
+    with torch.no_grad():
+        output = model(image_tensor.unsqueeze(0))  # (1, 1, 28, 28)
+        probabilities = torch.softmax(output, dim=1).cpu().numpy().flatten()
+        top3_idx = np.argsort(probabilities)[-3:][::-1]
+        top3_probs = probabilities[top3_idx]
+        return top3_idx, top3_probs, probabilities
+
+test_dataset = datasets.MNIST(root='./data', train=False, transform=transforms.ToTensor(), download=True)
+test_loader = DataLoader(dataset=test_dataset, batch_size=1, shuffle=True)
+example_img, example_label = next(iter(test_loader))
+
+top3_idx, top3_probs, all_probs = predict(model, example_img[0])
+
+plt.imshow(example_img[0].squeeze(), cmap='gray')
+plt.axis('off')
+
+for i in range(3):
+    print(f"{top3_idx[i]} (확률: {top3_probs[i]*100:.2f}%)")
+
+plt.show()
