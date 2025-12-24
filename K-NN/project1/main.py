@@ -4,6 +4,9 @@ import sys
 import utils as ut
 import argparse
 
+import matplotlib
+matplotlib.rc('font', family='NanumGothic')
+
 parser = argparse.ArgumentParser()
 parser.add_argument('--num', type=int, default=20, help='클래스별 점 개수')
 parser.add_argument('--n', type=int, default=100, help='격자 크기')
@@ -16,7 +19,6 @@ dot_list = ut.generate_dots(n, num_per_class, num_classes=3)
 class_colors = {1: 'red', 2: 'blue', 3: 'green'}
 
 
-# 1행 2열 subplot: 왼쪽은 분류 경계, 오른쪽은 정확도 그래프
 fig, (ax, ax_acc) = plt.subplots(1, 2, figsize=(12, 6))
 
 
