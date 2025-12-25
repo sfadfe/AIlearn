@@ -32,15 +32,28 @@ probs = model.softmax(y)
 sorted_idx = cp.argsort(probs[0])
 top3 = sorted_idx[-3:][::-1]
 
+fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(10, 5))
 
-print(f"정답(Label): {label}")
+ax1.imshow(img_tensor.squeeze(), cmap='gray')
+ax1.axis('off')
+ax1.set_title("img")
 
-for i, k in enumerate(top3):
-    digit = k.item()
-    conf = probs[0][k].item() * 100
+top3_digits = [k.item() for k in top3]
+top3_probs = [probs[0][k].item() * 100 for k in top3]
+colors = ['#000000', '#ff0000', '#1c00ff']
 
-    print(f"{i+1}위: 숫자 {digit} ({conf:.2f}%)")
+bars = ax2.barh(range(3), top3_probs, color=colors, height=0.3)
+ax2.set_yticks(range(3))
+ax2.set_yticklabels([f"Num {d}" for d in top3_digits], fontsize=12)
+ax2.set_xlabel('Probability (%)', fontsize=12)
+ax2.set_xlim(0, 100)
+ax2.set_title("Top 3 Predictions", fontsize=14)
 
-plt.imshow(img_tensor.squeeze(), cmap='gray')
-plt.axis('off')
-plt.show()
+for bar, prob in zip(bars, top3_probs):
+    ax2.text(prob + 1, bar.get_y() + bar.get_height()/2, 
+             f'{prob:.2f}%', 
+             va='center', fontsize=10, color='black')
+
+ax2.invert_yaxis()
+plt.tight_layout()
+plt.savefig('result.png', dpi=300)
