@@ -5,6 +5,8 @@ import matplotlib.pyplot as plt
 from torchvision import datasets, transforms
 from ANN_Model import ANN_class
 
+print("시작")
+
 model = ANN_class(input_size=784, hidden_sizes=[128, 64], output_size=10)
 
 with open('model.pkl', 'rb') as f:
@@ -57,3 +59,4 @@ for bar, prob in zip(bars, top3_probs):
 ax2.invert_yaxis()
 plt.tight_layout()
 plt.savefig('result.png', dpi=300)
+print("끝, 결과는 AIlearn/MNIST_ANN/My_ver/result.png에 저장.")
