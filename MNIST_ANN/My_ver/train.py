@@ -2,6 +2,7 @@ import cupy as cp
 from torchvision import datasets, transforms
 from torch.utils.data import DataLoader
 from ANN_Model import ANN_class
+from AdamW_Optimizer import AdamW
 from tqdm import tqdm
 import pickle
 
@@ -9,7 +10,7 @@ input_size = 784
 hidden_sizes = [128, 64]
 output_size = 10
 batch_size = 100
-learning_rate = 0.1
+learning_rate = 0.001
 epoch = 8
 
 transform = transforms.Compose([
@@ -24,6 +25,7 @@ train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
 test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False)
 
 model = ANN_class(input_size, hidden_sizes, output_size)
+optimizer = AdamW(lr=learning_rate)
 
 def preprocess_batch(images, labels, num_classes=10):
     x_batch = cp.array(images.view(images.shape[0], -1).numpy())
@@ -36,13 +38,12 @@ for i in range(epoch):
     count = 0
     
     for img, label in tqdm(train_loader):
-        x, t = preprocess_batch(img, label)
+        x, t = preprocess_batch(img, label) 
 
         y = model.forward(x)
         
         grads = model.gradient(x, t)
-        for key in model.params.keys():
-            model.params[key] -= learning_rate * grads[key]
+        optimizer.update(model.params, grads)
         
         y = model.softmax(y)
         acc += model.accuracy(x, t, y)
@@ -57,7 +58,6 @@ params_to_save = {}
 for key, val in model.params.items():
     params_to_save[key] = cp.asnumpy(val)
 
-# 2. 파일로 저장 (wb: write binary)
 with open('model.pkl', 'wb') as f:
     pickle.dump(params_to_save, f)
 

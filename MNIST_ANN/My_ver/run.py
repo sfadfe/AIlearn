@@ -4,6 +4,7 @@ import cupy as cp
 import matplotlib.pyplot as plt
 from torchvision import datasets, transforms
 from ANN_Model import ANN_class
+import time
 
 print("시작")
 
@@ -23,7 +24,7 @@ transform = transforms.Compose([
 test_dataset = datasets.MNIST(root='./data', train=False, download=True, transform=transform)
 
 idx = np.random.randint(len(test_dataset))
-img_tensor, label = test_dataset[idx]
+img_tensor, label = test_dataset[idx]   
 
 x = img_tensor.view(1, -1).numpy()
 x = cp.array(x)
@@ -56,7 +57,11 @@ for bar, prob in zip(bars, top3_probs):
              f'{prob:.2f}%', 
              va='center', fontsize=10, color='black')
 
+
+timestamp = int(time.time())
+filename = f'MNIST_ANN/My_ver/result/result_{timestamp}.png'
+    
 ax2.invert_yaxis()
 plt.tight_layout()
-plt.savefig('result.png', dpi=300)
-print("끝, 결과는 AIlearn/MNIST_ANN/My_ver/result.png에 저장.")
+plt.savefig(filename, dpi=300)
+print(f"끝, 결과는 AIlearn/MNIST_ANN/My_ver/{filename}에 저장.")
