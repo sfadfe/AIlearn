@@ -1,14 +1,18 @@
 import numpy as np
 import matplotlib.pyplot as plt
-from matplotlib.animation import FuncAnimation
+from matplotlib.animation import FuncAnimation, PillowWriter  # PillowWriter 추가
 import utils as ut
 import argparse
 
+import matplotlib
+matplotlib.use('Agg') 
+
 parser = argparse.ArgumentParser()
-parser.add_argument('--route', type=str, required=True, help='데이터 파일명 (예: data.csv)')
+parser.add_argument('--route', type=str, required=True)
 args = parser.parse_args()
 
 route = args.route
+
 def visualize_training(x_norm, y_norm, x_orig, y_orig, degree, learning_rate=0.01, iterations=1000):
     
     print(f"\nTraining polynomial of degree {degree}...")
@@ -16,14 +20,13 @@ def visualize_training(x_norm, y_norm, x_orig, y_orig, degree, learning_rate=0.0
     
     fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(15, 6))
     
-    x_range_orig = np.linspace(x_orig.min(), x_orig.max(), 300)
-    # 예측을 위한 정규화
-    x_range_norm = (x_range_orig - x_orig.min()) / (x_orig.max() - x_orig.min())
+    x_range_orig = np.linspace(float(x_orig.min()), float(x_orig.max()), 300)
+    x_range_norm = (x_range_orig - float(x_orig.min())) / (float(x_orig.max()) - float(x_orig.min()))
     
     def init():
         ax1.clear()
         ax2.clear()
-        ax1.scatter(x_orig, y_orig, c='blue', alpha=0.5, label='Data')  # 원본 좌표
+        ax1.scatter(x_orig, y_orig, c='blue', alpha=0.5, label='Data')
         ax1.set_xlabel('x')
         ax1.set_ylabel('y')
         ax1.set_title(f'Polynomial Regression (Degree {degree})')
@@ -44,26 +47,25 @@ def visualize_training(x_norm, y_norm, x_orig, y_orig, degree, learning_rate=0.0
         iteration, coeffs, loss = coeffs_history[frame_idx]
         
         ax1.clear()
-        ax1.scatter(x_orig, y_orig, c='blue', alpha=0.5, label='Data', s=30)  # 원본 좌표
+        ax1.scatter(x_orig, y_orig, c='blue', alpha=0.5, label='Data', s=30)
         
-        # 정규화된 x로 예측 후 역정규화
         y_pred_norm = ut.polynomial_predict(x_range_norm, coeffs)
-        y_pred_orig = y_pred_norm * (y_orig.max() - y_orig.min()) + y_orig.min()  # y 역정규화
+        y_pred_orig = y_pred_norm * (float(y_orig.max()) - float(y_orig.min())) + float(y_orig.min())
+        
         ax1.plot(x_range_orig, y_pred_orig, 'r-', linewidth=2, label=f'Fitted (iter {iteration})')
         
         ax1.set_xlabel('x', fontsize=12)
         ax1.set_ylabel('y', fontsize=12)
-        ax1.set_title(f'Polynomial Regression (Degree {degree})\nLoss: {loss:.6f}', fontsize=14)
+        ax1.set_title(f'Polynomial Regression (Degree {degree})\nLoss: {float(loss):.6f}', fontsize=14)
         ax1.legend(fontsize=10)
         ax1.grid(True, alpha=0.3)
         
-        # 오른쪽: 손실 변화
         ax2.clear()
         iterations_so_far = [h[0] for h in coeffs_history[:frame_idx+1]]
-        losses_so_far = [h[2] for h in coeffs_history[:frame_idx+1]]
+        losses_so_far = [float(h[2]) for h in coeffs_history[:frame_idx+1]]
         
         ax2.plot(iterations_so_far, losses_so_far, 'g-', linewidth=2)
-        ax2.scatter([iteration], [loss], c='red', s=100, zorder=5)
+        ax2.scatter([iteration], [float(loss)], c='red', s=100, zorder=5)
         ax2.set_xlabel('Iteration', fontsize=12)
         ax2.set_ylabel('Loss (MSE)', fontsize=12)
         ax2.set_title('Training Loss Over Time', fontsize=14)
@@ -81,36 +83,33 @@ def visualize_training(x_norm, y_norm, x_orig, y_orig, degree, learning_rate=0.0
         blit=False
     )
     
-    plt.tight_layout()
-    plt.show()
-    
     final_iter, final_coeffs, final_loss = coeffs_history[-1]
-    print(f"\nFinal Loss: {final_loss:.6f}")
+    print(f"\nFinal Loss: {float(final_loss):.6f}")
     print(f"Final Coefficients: {final_coeffs}")
+    
+    return anim
 
-
-csv_file = f"data/{route}" # 데이터 파일 경로.
+csv_file = f"data/{route}"
 
 x, y = ut.load_csv_data(csv_file)
 print(f"Loaded {len(x)} data points from {csv_file}")
 
 print("\n=== Normalizing Features ===")
-print(f"Original x range: [{x.min():.2f}, {x.max():.2f}]")
-print(f"Original y range: [{y.min():.2f}, {y.max():.2f}]")
+print(f"Original x range: [{float(x.min()):.2f}, {float(x.max()):.2f}]")
+print(f"Original y range: [{float(y.min()):.2f}, {float(y.max()):.2f}]")
 
 x_normalized, x_min, x_max = ut.normalize_features(x)
 y_normalized, y_min, y_max = ut.normalize_features(y)
 
-print(f"Normalized x range: [{x_normalized.min():.2f}, {x_normalized.max():.2f}]")
-print(f"Normalized y range: [{y_normalized.min():.2f}, {y_normalized.max():.2f}]")
+print(f"Normalized x range: [{float(x_normalized.min()):.2f}, {float(x_normalized.max()):.2f}]")
+print(f"Normalized y range: [{float(y_normalized.min()):.2f}, {float(y_normalized.max()):.2f}]")
 
-# 차수별 학습 및 최적 차수 찾기
 print("\n=== Finding Best Polynomial Degree ===")
-learning_rate = 0.05  #학습률
-iterations = 8000  #사용할 데이터 수
+learning_rate = 0.05
+iterations = 8000
 
 best_degree, all_results = ut.find_best_degree(
-    x_normalized, y_normalized,  #계산은 정규화된 데이터를 사용한다.
+    x_normalized, y_normalized,
     learning_rate=learning_rate,
     iterations=iterations,
     validation_split=0.4,
@@ -118,9 +117,13 @@ best_degree, all_results = ut.find_best_degree(
 )
 
 print(f"\n=== Best Degree: {best_degree} ===")
-print(f"Best Validation Loss: {all_results[best_degree][2]:.6f}")
-print(f"Train Loss: {all_results[best_degree][1]:.6f}")
-print(f"Full Data Loss: {all_results[best_degree][3]:.6f}")
+print(f"Best Validation Loss: {float(all_results[best_degree][2]):.6f}")
+print(f"Train Loss: {float(all_results[best_degree][1]):.6f}")
+print(f"Full Data Loss: {float(all_results[best_degree][3]):.6f}")
 
 print("\n=== Training on full dataset ===")
-visualize_training(x_normalized, y_normalized, x, y, best_degree, learning_rate, iterations)
+global_anim = visualize_training(x_normalized, y_normalized, x, y, best_degree, learning_rate, iterations)
+
+print("\nSaving animation to 'training_result.gif'...")
+global_anim.save('training_result.gif', writer=PillowWriter(fps=15))
+print("Done! Please check the file.")
