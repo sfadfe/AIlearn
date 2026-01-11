@@ -4,6 +4,7 @@ import numpy as np
 import os
 from tqdm import tqdm
 import time
+from Autograd import Tensor as Tsr
 
 current_time = time.localtime()
 timee = time.strftime("%Y-%m-%d_%H-%M-%S", current_time)
@@ -51,27 +52,28 @@ pbar = tqdm(
 try:
     for epoch in pbar:
         indices = cp.random.permutation(num_data)
-        epoch_loss = cp.array(0.0, dtype=cp.float32) 
+        epoch_loss = 0.0
         iteration = 0
 
         for i in range(0, num_data, batch_size):
             batch_idx = indices[i : i + batch_size]
-            x_batch = X_train[batch_idx]
-            t_batch = T_train[batch_idx]
+            x_batch = Tsr(X_train[batch_idx])
+            t_batch = Tsr(T_train[batch_idx])
 
             y_pred = model.forward(x_batch)
             loss = model.loss(x_batch, y_pred, t_batch)
-            model.backward(x_batch, t_batch, y_pred)
-            optimizer.update(model.params, model.grads)
+            loss.backward()
+
+            optimizer.update(model.params)
             
-            epoch_loss += loss 
+            epoch_loss += loss.data.item()
             iteration += 1
 
-        avg_loss = epoch_loss.item() / iteration
+        avg_loss = epoch_loss / iteration
 
         if avg_loss < best_loss:
             best_loss = avg_loss
-            best_params_in_ram = {k: v.get() for k, v in model.params.items()} 
+            best_params_in_ram = {k: v.data.get() for k, v in model.params.items()} 
 
         pbar.set_postfix({'Loss': f'{avg_loss:.6f}', 'Best': f'{best_loss:.6f}'})
 
