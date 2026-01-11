@@ -9,7 +9,7 @@ output_dir = "Double_pendulum/ANN_ver/learning_data"
 if not os.path.exists(output_dir):
     os.makedirs(output_dir)
 
-dt = 0.05
+dt = 0.01
 t_max = 10
 steps = int(t_max / dt)
 
@@ -23,16 +23,16 @@ for line in tqdm(lines, desc="Simulating"):
     if not line:
         continue
 
-    L1 = float(np.random.uniform(0.1, 3.0))
-    L2 = float(np.random.uniform(0.1, 3.0))
+    L1 = float(np.random.uniform(0.2, 3.0))
+    L2 = float(np.random.uniform(0.2, 3.0))
     m1 = float(np.random.uniform(0.5, 6.5))
     m2 = float(np.random.uniform(0.5, 6.5))
 
     if np.random.rand() < 0.07:
-        m1, m2 = 10.0, 0.1
+        m1, m2 = 0.7, 0.1
         if np.random.rand() < 0.5:
             m1, m2 = m2, m1
-    
+   
     parts = line.replace(',', ' ').split()
     initial_state = list(map(float, parts))
     
