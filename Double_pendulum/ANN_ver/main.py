@@ -1,4 +1,4 @@
-from PINNs import PINNs, AdamW
+from PINNs import PINNs, AdamW_AutoGrad
 import cupy as cp
 import numpy as np
 import os
@@ -27,7 +27,12 @@ X_mean = X_flat.mean(axis=0)
 X_std = X_flat.std(axis=0) + 1e-8
 X_flat = (X_flat - X_mean) / X_std
 
-np.save(scaler_dir, {'mean': X_mean, 'std': X_std})
+T_mean = T_flat.mean(axis=0)
+T_std = T_flat.std(axis=0) + 1e-8
+T_flat = (T_flat - T_mean) / T_std
+
+# 스케일러 저장
+np.save(scaler_dir, {'X_mean': X_mean, 'X_std': X_std, 'T_mean': T_mean, 'T_std': T_std})
     
 X_train = cp.array(X_flat, dtype=cp.float32)
 T_train = cp.array(T_flat, dtype=cp.float32)
@@ -35,19 +40,20 @@ T_train = cp.array(T_flat, dtype=cp.float32)
 num_data = X_train.shape[0]
 batch_size = 16384
 
-model = PINNs(input_size=8, hidden_sizes=[256, 256, 256, 256, 256, 256, 256], output_size=4) # 은닉층 7층 256유닛
-optimizer = AdamW(lr=0.005, weight_decay=1e-4)
+model = PINNs(
+    input_size=8, 
+    hidden_sizes=[256, 256, 256, 256, 256, 256, 256], 
+    output_size=4,
+    X_mean=X_mean, X_std=X_std,
+    T_mean=T_mean, T_std=T_std
+)
+
+optimizer = AdamW_AutoGrad(lr=0.005, weight_decay=1e-4)
 
 best_loss = float('inf')
 best_params_in_ram = None
 
-pbar = tqdm(
-    range(epochs), 
-    desc="Training", 
-    mininterval=1.0,  
-    ascii=True,       
-    smoothing=0.1     
-)
+pbar = tqdm(range(epochs), desc="Training", mininterval=1.0, ascii=True, smoothing=0.1)
 
 try:
     for epoch in pbar:
@@ -57,13 +63,15 @@ try:
 
         for i in range(0, num_data, batch_size):
             batch_idx = indices[i : i + batch_size]
+            
             x_batch = Tsr(X_train[batch_idx])
             t_batch = Tsr(T_train[batch_idx])
 
             y_pred = model.forward(x_batch)
+            
             loss = model.loss(x_batch, y_pred, t_batch)
+            
             loss.backward()
-
             optimizer.update(model.params)
             
             epoch_loss += loss.data.item()

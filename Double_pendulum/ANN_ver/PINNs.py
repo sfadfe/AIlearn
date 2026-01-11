@@ -3,11 +3,16 @@ import numpy as np
 from Autograd import Tensor as Tsr
 
 
+from Autograd import Tensor as Tsr
+import cupy as cp
+
 class PINNs:
-    def __init__(self, input_size, hidden_sizes, output_size, m1=1.0, m2=1.0, L1=1.0, L2=1.0, g=9.81):
-        self.m1, self.m2 = m1, m2
-        self.L1, self.L2 = L1, L2
-        self.g = g
+    def __init__(self, input_size, hidden_sizes, output_size, X_mean, X_std, T_mean, T_std):
+        self.g = 9.81
+        self.X_mean = cp.array(X_mean, dtype=cp.float32)
+        self.X_std = cp.array(X_std, dtype=cp.float32)
+        self.T_mean = cp.array(T_mean, dtype=cp.float32)
+        self.T_std = cp.array(T_std, dtype=cp.float32)
         
         self.params = {}
         self.hidden_sizes = hidden_sizes
@@ -22,70 +27,72 @@ class PINNs:
             w_key = 'W' + str(i + 1)
             b_key = 'b' + str(i + 1)
             
-            # Tanh activation function에 적합한 Xavier Initialization 적용
-            # 표준편차 = sqrt(1 / 입력노드수) 또는 sqrt(2 / (입력+출력))
+            # Xavier Initialization
             scale = cp.sqrt(1.0 / in_node)
             self.params[w_key] = Tsr(cp.random.randn(in_node, out_node) * scale)
             self.params[b_key] = Tsr(cp.zeros(out_node))
 
     def forward(self, x):
-        
         out = x
-
         for i in range(1, self.num_layers):
             W = self.params['W' + str(i)]
             b = self.params['b' + str(i)]
-            
-        # 마지막 층 (Identity function)
             z = out @ W + b
-            self.cache['a' + str(i)] = z # 활성화 전
-            
             out = z.tanh()
-            self.cache['z' + str(i)] = out # 활성화 후
 
-        # 마지막 층 (Identity function)
         last_idx = self.num_layers
         W_last = self.params['W' + str(last_idx)]
         b_last = self.params['b' + str(last_idx)]
-        
         out = out @ W_last + b_last
-        
         return out
 
-    def get_energy(self, state):
+    def get_energy(self, state, params):
+        # Tensor 슬라이싱
         th1 = state[:, 0]
         w1  = state[:, 1]
         th2 = state[:, 2]
         w2  = state[:, 3]
         
-        # 1. 위치 에너지
-        y1 = -self.L1 * th1.cos()
-        y2 = y1 - self.L2 * th2.cos()
-        V = self.m1 * self.g * y1 + self.m2 * self.g * y2
+        m1 = params[:, 0]
+        m2 = params[:, 1]
+        L1 = params[:, 2]
+        L2 = params[:, 3]
+
+        # 1. 위치 에너지 계산
+        y1 = -L1 * th1.cos()
+        y2 = y1 - L2 * th2.cos()
+        V = m1 * self.g * y1 + m2 * self.g * y2
         
-        # 2. 운동 에너지
-        v1_sq = (self.L1 * w1)**2
-        v2_sq = (self.L1 * w1)**2 + (self.L2 * w2)**2 + \
-                2 * self.L1 * self.L2 * w1 * w2 * (th1 - th2).cos()
+        # 2. 운동 에너지 계산
+        v1_sq = (L1 * w1)**2
+        v2_sq = (L1 * w1)**2 + (L2 * w2)**2 + \
+                2 * L1 * L2 * w1 * w2 * (th1 - th2).cos()
                 
-        T = 0.5 * self.m1 * v1_sq + 0.5 * self.m2 * v2_sq
+        T = 0.5 * m1 * v1_sq + 0.5 * m2 * v2_sq
         
         return T + V
 
-    def loss(self, x_input, y_pred, t_true): # 손실함수: RK4 데이터에서의 손실 + 물리항에서의 손실(E_실제 - E_예측)
-
+    def loss(self, x_input, y_pred, t_true):
         batch_size = y_pred.data.shape[0]
         
         loss_data = 0.5 * ((y_pred - t_true) ** 2).sum() / batch_size
         
-        E_in = self.get_energy(x_input)
-        E_pred = self.get_energy(y_pred)
+        x_real = x_input * self.X_std + self.X_mean
+        y_real_state = y_pred * self.T_std + self.T_mean
         
-        loss_physics = 0.5 * ((E_pred - E_in) ** 2).sum() / batch_size
+        # x_real: [th1, w1, th2, w2, m1, m2, L1, L2]
+        params_real = x_real[:, 4:]
         
-        lambda_p = 0.2
+        E_in = self.get_energy(x_real[:, :4], params_real)
         
-        return loss_data + lambda_p * loss_physics
+        E_pred = self.get_energy(y_real_state, params_real)
+        
+        loss_physics_raw = 0.5 * ((E_pred - E_in) ** 2).sum() / batch_size
+    
+        
+        lambda_p = 0.1
+        
+        return loss_data + lambda_p * loss_physics_raw
 
 class AdamW:
     def __init__(self, lr=0.005, beta1=0.9, beta2=0.999, epsilon=1e-8, weight_decay=0.01):

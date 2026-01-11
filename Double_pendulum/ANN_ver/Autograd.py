@@ -175,8 +175,8 @@ class Tensor: # from Autograd import Tensor as Tsr 로 사용 바람.
         out = Tensor(self.data * other.data, (self, other), '*')
 
         def _backward():
-            self.grad += other.data * out._unbroadcast(out.grad, self.data.shape)
-            other.grad += self.data * out._unbroadcast(out.grad, other.data.shape)
+            self.grad += self._unbroadcast(out.grad * other.data, self.data.shape)
+            other.grad += self._unbroadcast(out.grad * self.data, other.data.shape)
         out._backward = _backward
 
         return out
@@ -274,15 +274,16 @@ class Tensor: # from Autograd import Tensor as Tsr 로 사용 바람.
         return other.__truediv__(self)
     
     def _unbroadcast(self, grad, shape):
-        # 차원 수가 늘어난 경우
-        while grad.ndim > len(shape):
-            grad = cp.sum(grad, axis=0)
-        
-        # 특정 차원이 1로 늘어난 경우
-        for i, dim in enumerate(shape):
-            if dim == 1:
-                grad = cp.sum(grad, axis=i, keepdims=True)
-        return grad
+            
+            if grad.shape == shape:
+                return grad
+                
+            while grad.ndim > len(shape):
+                grad = cp.sum(grad, axis=0)
+            for i, dim in enumerate(shape):
+                if dim == 1:
+                    grad = cp.sum(grad, axis=i, keepdims=True)
+            return grad
     
     def __rmul__(self, other):
         return self * other
